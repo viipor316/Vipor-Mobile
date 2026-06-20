@@ -12,6 +12,8 @@ import { AuthProvider, useAuth } from './src/auth';
 import LoginScreen from './src/screens/LoginScreen';
 import QuoteApprovalScreen from './src/screens/QuoteApprovalScreen';
 import LiveTrackingScreen from './src/screens/LiveTrackingScreen';
+import TechDashboardScreen from './src/screens/TechDashboardScreen';
+import QuoteBuilderScreen from './src/screens/QuoteBuilderScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,11 +28,24 @@ function Root() {
 
   if (!user) return <LoginScreen />;
 
+  // Role-based routing: technicians/admins get the shop dashboard; customers get
+  // the quote-approval + tracking flow.
+  const isStaff = user.role === 'technician' || user.role === 'admin';
+
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="QuoteApproval" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="QuoteApproval" component={QuoteApprovalScreen} initialParams={{ quoteId: 'q_1042' }} />
-        <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isStaff ? (
+          <>
+            <Stack.Screen name="TechDashboard" component={TechDashboardScreen} />
+            <Stack.Screen name="QuoteBuilder" component={QuoteBuilderScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="QuoteApproval" component={QuoteApprovalScreen} initialParams={{ quoteId: 'q_1042' }} />
+            <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

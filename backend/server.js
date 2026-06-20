@@ -61,7 +61,10 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'vipor-d
 const SEED_DEMO = process.env.SEED_DEMO !== 'false';
 
 function buildSeed() {
-  const seed = { tenants: {}, users: {}, quotes: {}, jobs: {}, jobSeq: 30, userSeq: 1 };
+  const seed = {
+    tenants: {}, users: {}, requests: {}, quotes: {}, jobs: {},
+    reqSeq: 2000, quoteSeq: 2000, jobSeq: 30, userSeq: 1,
+  };
   if (!SEED_DEMO) return seed;
 
   // tenantId -> garage record (branding + subscription state)
@@ -70,15 +73,40 @@ function buildSeed() {
     stripeCustomerId: null, stripeSubscriptionId: null,
     branding: { name: 'Vipor', primaryColor: '#c8102e', logoUrl: null, locales: ['en', 'fr'] },
   };
+
+  // Open service requests waiting in the technician's inbox.
+  seed.requests.r_1041 = {
+    id: 'r_1041', tenantId: 'vipor', status: 'open', customerName: 'J. Tremblay',
+    vehicle: { year: 2019, make: 'Ford', model: 'F-150' },
+    description: 'Grinding noise when braking', photoUrls: [], createdAt: 1718900000000,
+  };
+  seed.requests.r_1040 = {
+    id: 'r_1040', tenantId: 'vipor', status: 'open', customerName: 'A. Tran',
+    vehicle: { year: 2015, make: 'Honda', model: 'Civic' },
+    description: 'Oil change + inspection', photoUrls: [], createdAt: 1718890000000,
+  };
+
+  // A quote already sent to the customer demo account (their app approves it).
   seed.quotes.q_1042 = {
     id: 'q_1042', tenantId: 'vipor', status: 'sent', markupPct: 30, total: 225.0,
-    request: { vehicle: { year: 2018, make: 'Honda', model: 'Civic' } },
+    customerName: 'Jordan Customer',
+    request: { vehicle: { year: 2018, make: 'Honda', model: 'Civic' }, description: 'Brakes + service' },
     lineItems: [
       { label: 'Brake pads & rotors', qty: 1, unitPrice: 150.0, kind: 'part' },
       { label: 'Oil & air filter', qty: 1, unitPrice: 43.0, kind: 'part' },
       { label: 'Labour', qty: 1.5, unitPrice: 80.0, kind: 'labour' },
     ],
   };
+
+  // An active job so the technician dashboard isn't empty.
+  seed.quotes.q_1900 = {
+    id: 'q_1900', tenantId: 'vipor', status: 'approved', markupPct: 30, total: 156.0,
+    customerName: 'M. Roy',
+    request: { vehicle: { year: 2020, make: 'Toyota', model: 'RAV4' }, description: 'Diagnostic' },
+    lineItems: [{ label: 'Diagnostic', qty: 1, unitPrice: 120.0, kind: 'labour' }],
+  };
+  seed.jobs.j_29 = { id: 'j_29', tenantId: 'vipor', quoteId: 'q_1900', status: 'in_progress', locations: [] };
+
   // two demo accounts so you can log in immediately
   const seedUser = (email, name, role, password) => {
     seed.users[email] = {
@@ -300,6 +328,74 @@ app.post('/api/quotes/:id/reject', (req, res) => {
   q.status = 'rejected';
   persist();
   res.json({ ok: true });
+});
+
+// ---- technician / admin: inbox, quote building, jobs ----------------------
+const fmtVehicle = (v) =>
+  v && typeof v === 'object' ? `${v.year} ${v.make} ${v.model}`.trim() : (v || '—');
+
+// customer submits a service request -> lands in the tech inbox
+app.post('/api/requests', (req, res) => {
+  const { vehicle = null, description, photoUrls = [] } = req.body;
+  if (!description) return res.status(400).json({ error: 'description is required' });
+  const id = `r_${db.reqSeq++}`;
+  db.requests[id] = {
+    id, tenantId: req.tenantId, status: 'open',
+    customerName: req.user.name || req.user.email, vehicle, description, photoUrls,
+    createdAt: Date.now(),
+  };
+  persist();
+  res.status(201).json(db.requests[id]);
+});
+
+// tech/admin inbox — open requests awaiting a quote
+app.get('/api/requests', requireRole('technician', 'admin'), (req, res) => {
+  const list = Object.values(db.requests)
+    .filter((r) => r.tenantId === req.tenantId && r.status === 'open')
+    .sort((a, b) => b.createdAt - a.createdAt);
+  res.json(list);
+});
+
+// tech/admin builds & sends a quote for a request
+app.post('/api/quotes', requireRole('technician', 'admin'), (req, res) => {
+  const { requestId, lineItems, markupPct = 0 } = req.body;
+  const r = db.requests[requestId];
+  if (!r || r.tenantId !== req.tenantId) return res.status(404).json({ error: 'request not found' });
+  if (r.status !== 'open') return res.status(409).json({ error: 'request already quoted' });
+  if (!Array.isArray(lineItems) || lineItems.length === 0) {
+    return res.status(400).json({ error: 'at least one line item is required' });
+  }
+  const subtotal = lineItems.reduce((s, li) => s + (Number(li.qty) || 1) * Number(li.unitPrice || 0), 0);
+  const total = Math.round(subtotal * (1 + Number(markupPct) / 100) * 100) / 100;
+  const id = `q_${db.quoteSeq++}`;
+  db.quotes[id] = {
+    id, tenantId: req.tenantId, status: 'sent', markupPct: Number(markupPct), total,
+    customerName: r.customerName, requestId,
+    request: { vehicle: r.vehicle, description: r.description },
+    lineItems: lineItems.map((li) => ({
+      label: li.label, qty: Number(li.qty) || 1, unitPrice: Number(li.unitPrice || 0),
+      kind: li.kind === 'part' ? 'part' : 'labour',
+    })),
+  };
+  r.status = 'quoted';
+  persist();
+  res.status(201).json(db.quotes[id]);
+});
+
+// tech/admin jobs list — flattened for the dashboard
+app.get('/api/jobs', requireRole('technician', 'admin'), (req, res) => {
+  const list = Object.values(db.jobs)
+    .filter((j) => j.tenantId === req.tenantId)
+    .map((j) => {
+      const q = db.quotes[j.quoteId] || {};
+      return {
+        id: j.id, status: j.status, total: q.total ?? null,
+        customerName: q.customerName || '—',
+        vehicle: fmtVehicle(q.request?.vehicle),
+        service: q.request?.description || '—',
+      };
+    });
+  res.json(list);
 });
 
 // only techs/admins move jobs along
