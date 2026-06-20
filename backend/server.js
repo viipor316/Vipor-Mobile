@@ -79,21 +79,27 @@ function buildSeed() {
 
   // Open service requests waiting in the technician's inbox.
   seed.requests.r_1041 = {
-    id: 'r_1041', tenantId: 'vipor', status: 'open', customerName: 'J. Tremblay',
-    vehicle: { year: 2019, make: 'Ford', model: 'F-150' },
+    id: 'r_1041', tenantId: 'vipor', status: 'open', customerId: null, customerName: 'J. Tremblay',
+    vehicle: { year: 2019, make: 'Ford', model: 'F-150', vin: '1FTFW1E5XKFA12345' },
     description: 'Grinding noise when braking', photoUrls: [], createdAt: 1718900000000,
   };
   seed.requests.r_1040 = {
-    id: 'r_1040', tenantId: 'vipor', status: 'open', customerName: 'A. Tran',
-    vehicle: { year: 2015, make: 'Honda', model: 'Civic' },
+    id: 'r_1040', tenantId: 'vipor', status: 'open', customerId: null, customerName: 'A. Tran',
+    vehicle: { year: 2015, make: 'Honda', model: 'Civic', vin: '2HGFB2F50FH567890' },
     description: 'Oil change + inspection', photoUrls: [], createdAt: 1718890000000,
+  };
+  // The demo customer's own request (u_1 = first seeded user) — already quoted.
+  seed.requests.r_1042 = {
+    id: 'r_1042', tenantId: 'vipor', status: 'quoted', customerId: 'u_1', customerName: 'Jordan Customer',
+    vehicle: { year: 2018, make: 'Honda', model: 'Civic', vin: '19XFC2F59JE000111' },
+    description: 'Brakes + service', photoUrls: [], createdAt: 1718880000000,
   };
 
   // A quote already sent to the customer demo account (their app approves it).
   seed.quotes.q_1042 = {
     id: 'q_1042', tenantId: 'vipor', status: 'sent', markupPct: 30, total: 225.0,
-    customerName: 'Jordan Customer',
-    request: { vehicle: { year: 2018, make: 'Honda', model: 'Civic' }, description: 'Brakes + service' },
+    customerId: 'u_1', customerName: 'Jordan Customer', requestId: 'r_1042',
+    request: { vehicle: { year: 2018, make: 'Honda', model: 'Civic', vin: '19XFC2F59JE000111' }, description: 'Brakes + service' },
     lineItems: [
       { label: 'Brake pads & rotors', qty: 1, unitPrice: 150.0, kind: 'part' },
       { label: 'Oil & air filter', qty: 1, unitPrice: 43.0, kind: 'part' },
@@ -366,14 +372,27 @@ const fmtVehicle = (v) =>
 app.post('/api/requests', (req, res) => {
   const { vehicle = null, description, photoUrls = [] } = req.body;
   if (!description) return res.status(400).json({ error: 'description is required' });
+  const me = db.users[userKey(req.tenantId, req.user.email)];
   const id = `r_${db.reqSeq++}`;
   db.requests[id] = {
     id, tenantId: req.tenantId, status: 'open',
-    customerName: req.user.name || req.user.email, vehicle, description, photoUrls,
-    createdAt: Date.now(),
+    customerId: req.user.id, customerName: me?.name || req.user.email,
+    vehicle, description, photoUrls, createdAt: Date.now(),
   };
   persist();
   res.status(201).json(db.requests[id]);
+});
+
+// customer's own requests, each annotated with its quote (if one exists)
+app.get('/api/my/requests', (req, res) => {
+  const mine = Object.values(db.requests)
+    .filter((r) => r.tenantId === req.tenantId && r.customerId === req.user.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((r) => {
+      const q = Object.values(db.quotes).find((x) => x.requestId === r.id && x.tenantId === req.tenantId);
+      return { ...r, quote: q ? { id: q.id, status: q.status, total: q.total } : null };
+    });
+  res.json(mine);
 });
 
 // tech/admin inbox — open requests awaiting a quote

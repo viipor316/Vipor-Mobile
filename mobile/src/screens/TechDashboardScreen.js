@@ -123,6 +123,7 @@ export default function TechDashboardScreen({ navigation }) {
               </View>
             </View>
             <Text style={styles.cardSub}>{fmtVehicle(r.vehicle)}</Text>
+            {r.vehicle?.vin ? <Text style={styles.vin}>VIN {r.vehicle.vin}</Text> : null}
             <Text style={styles.cardIssue}>“{r.description}”</Text>
             <Pressable
               style={[styles.cardCta, { backgroundColor: theme.primaryColor }]}
@@ -199,7 +200,8 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardName: { color: INK, fontSize: 15, fontWeight: '700' },
   cardSub: { color: '#4b5563', fontSize: 13, marginTop: 4 },
-  cardIssue: { color: MUTED, fontSize: 13, marginTop: 2, fontStyle: 'italic' },
+  vin: { color: '#94a0ad', fontSize: 11, marginTop: 2, fontVariant: ['tabular-nums'] },
+  cardIssue: { color: MUTED, fontSize: 13, marginTop: 4, fontStyle: 'italic' },
   cardCta: { marginTop: 14, borderRadius: 10, height: 42, alignItems: 'center', justifyContent: 'center' },
   cardCtaText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   doneNote: { color: '#1e6f43', fontWeight: '700', fontSize: 13, marginTop: 12 },

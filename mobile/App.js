@@ -13,6 +13,8 @@ import { api } from './src/api';
 import LoginScreen from './src/screens/LoginScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import PaywallScreen from './src/screens/PaywallScreen';
+import CustomerHomeScreen from './src/screens/CustomerHomeScreen';
+import NewRequestScreen from './src/screens/NewRequestScreen';
 import QuoteApprovalScreen from './src/screens/QuoteApprovalScreen';
 import LiveTrackingScreen from './src/screens/LiveTrackingScreen';
 import TechDashboardScreen from './src/screens/TechDashboardScreen';
@@ -40,7 +42,9 @@ function CustomerNav() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="QuoteApproval" component={QuoteApprovalScreen} initialParams={{ quoteId: 'q_1042' }} />
+        <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
+        <Stack.Screen name="NewRequest" component={NewRequestScreen} />
+        <Stack.Screen name="QuoteApproval" component={QuoteApprovalScreen} />
         <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
       </Stack.Navigator>
     </NavigationContainer>

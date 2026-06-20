@@ -65,6 +65,7 @@ export default function QuoteBuilderScreen({ route, navigation }) {
         <Text style={styles.subtitle}>
           {fmtVehicle(request.vehicle)} · “{request.description}”
         </Text>
+        {request.vehicle?.vin ? <Text style={styles.vin}>VIN {request.vehicle.vin}</Text> : null}
 
         <Text style={styles.section}>Line items</Text>
         <View style={styles.lines}>
@@ -150,7 +151,8 @@ const styles = StyleSheet.create({
 
   body: { padding: 20, paddingBottom: 40 },
   title: { color: INK, fontSize: 24, fontWeight: '700' },
-  subtitle: { color: MUTED, fontSize: 13, marginTop: 4, marginBottom: 8 },
+  subtitle: { color: MUTED, fontSize: 13, marginTop: 4 },
+  vin: { color: '#94a0ad', fontSize: 11, marginTop: 4, marginBottom: 8, fontVariant: ['tabular-nums'] },
   section: { color: INK, fontSize: 15, fontWeight: '700', marginTop: 22, marginBottom: 10 },
 
   lines: { backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16 },
