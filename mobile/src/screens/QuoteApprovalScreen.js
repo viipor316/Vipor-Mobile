@@ -108,6 +108,9 @@ export default function QuoteApprovalScreen({ route, navigation }) {
   const isOpen = quote.status === 'sent';
   const isApproved = quote.status === 'approved';
   const v = quote.request?.vehicle;
+  // Shop markup is internal — never shown to the customer. Fold it into the line
+  // prices so the items still sum to the total they're approving.
+  const markupFactor = 1 + Number(quote.markupPct || 0) / 100;
 
   return (
     <View style={styles.screen}>
@@ -136,19 +139,13 @@ export default function QuoteApprovalScreen({ route, navigation }) {
 
         <View style={styles.lines}>
           {quote.lineItems.map((li, i) => (
-            <View key={i} style={[styles.lineRow, i === quote.lineItems.length - 1 && !quote.markupPct && styles.last]}>
+            <View key={i} style={[styles.lineRow, i === quote.lineItems.length - 1 && styles.last]}>
               <Text style={styles.lineLabel}>
                 {li.label}{li.qty > 1 ? <Text style={styles.muted}>  ×{li.qty}</Text> : null}
               </Text>
-              <Text style={styles.lineValue}>{fmt(li.qty * li.unitPrice)}</Text>
+              <Text style={styles.lineValue}>{fmt(li.qty * li.unitPrice * markupFactor)}</Text>
             </View>
           ))}
-          {Number(quote.markupPct) > 0 && (
-            <View style={[styles.lineRow, styles.last]}>
-              <Text style={styles.lineLabel}>Shop markup</Text>
-              <Text style={styles.muted}>{Number(quote.markupPct)}%</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.totalCard}>

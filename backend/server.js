@@ -97,7 +97,7 @@ function buildSeed() {
 
   // A quote already sent to the customer demo account (their app approves it).
   seed.quotes.q_1042 = {
-    id: 'q_1042', tenantId: 'vipor', status: 'sent', markupPct: 30, total: 225.0,
+    id: 'q_1042', tenantId: 'vipor', status: 'sent', markupPct: 30, total: 406.9,
     customerId: 'u_1', customerName: 'Jordan Customer', requestId: 'r_1042',
     request: { vehicle: { year: 2018, make: 'Honda', model: 'Civic', vin: '19XFC2F59JE000111' }, description: 'Brakes + service' },
     lineItems: [
