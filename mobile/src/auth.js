@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { api, setAuthToken, setUnauthorizedHandler } from './api';
+import { useTheme } from './theme';
 
 const TOKEN_KEY = 'vipor.token';
 const AuthContext = createContext(null);
@@ -13,6 +14,7 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
+  const { refresh: refreshTheme } = useTheme();
 
   const logout = useCallback(async () => {
     setAuthToken(null);
@@ -31,6 +33,7 @@ export function AuthProvider({ children }) {
         if (token) {
           setAuthToken(token);
           setUser(await api.get('/me'));   // verifies the token is still valid
+          refreshTheme();                  // re-load the tenant's branding
         }
       } catch {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
@@ -38,21 +41,22 @@ export function AuthProvider({ children }) {
         setBooting(false);
       }
     })();
-  }, []);
+  }, [refreshTheme]);
 
   async function persist(token, u) {
     setAuthToken(token);
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     setUser(u);
+    refreshTheme();
   }
 
-  const login = async (email, password) => {
-    const { token, user: u } = await api.post('/auth/login', { email, password });
+  const login = async (tenant, email, password) => {
+    const { token, user: u } = await api.post('/auth/login', { tenant, email, password });
     await persist(token, u);
   };
 
-  const register = async (name, email, password, role = 'customer') => {
-    const { token, user: u } = await api.post('/auth/register', { name, email, password, role });
+  const register = async (tenant, name, email, password) => {
+    const { token, user: u } = await api.post('/auth/register', { tenant, name, email, password });
     await persist(token, u);
   };
 

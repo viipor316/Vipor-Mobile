@@ -14,17 +14,26 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState('login');     // 'login' | 'register'
+  const [garage, setGarage] = useState('vipor'); // tenant code (prefilled for the demo)
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  const normGarage = () => garage.trim().toLowerCase();
+
+  // brand the screen for the entered garage as soon as the field loses focus
+  function previewGarage() {
+    theme.previewTenant?.(normGarage());
+  }
+
   async function submit() {
     setError(null); setBusy(true);
     try {
-      if (mode === 'login') await login(email.trim(), password);
-      else await register(name.trim(), email.trim(), password);
+      const g = normGarage();
+      if (mode === 'login') await login(g, email.trim(), password);
+      else await register(g, name.trim(), email.trim(), password);
     } catch (e) {
       setError(e.message ?? 'Something went wrong');
       setBusy(false);
@@ -34,10 +43,13 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.inner, { paddingTop: insets.top + 60 }]}>
-        <Text style={styles.brand}>Vipor</Text>
+        <Text style={[styles.brand, { color: theme.primaryColor }]}>{theme.name || 'Vipor'}</Text>
         <Text style={styles.tagline}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</Text>
 
         <View style={styles.card}>
+          <TextInput style={styles.input} placeholder="Garage code (e.g. vipor)" placeholderTextColor="#aab2bd"
+            value={garage} onChangeText={setGarage} onBlur={previewGarage}
+            autoCapitalize="none" autoCorrect={false} />
           {mode === 'register' && (
             <TextInput style={styles.input} placeholder="Full name" placeholderTextColor="#aab2bd"
               value={name} onChangeText={setName} autoCapitalize="words" />
@@ -62,7 +74,7 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.demo}>Demo: customer@demo.com / password</Text>
+        <Text style={styles.demo}>Demo garage code: vipor · customer@demo.com / password</Text>
       </View>
     </KeyboardAvoidingView>
   );

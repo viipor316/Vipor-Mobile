@@ -60,6 +60,9 @@ const TIERS = {
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'vipor-db.json');
 const SEED_DEMO = process.env.SEED_DEMO !== 'false';
 
+// Users are keyed by tenant + email: the same email can exist in two garages.
+const userKey = (tenantId, email) => `${tenantId}:${String(email).toLowerCase()}`;
+
 function buildSeed() {
   const seed = {
     tenants: {}, users: {}, requests: {}, quotes: {}, jobs: {},
@@ -109,7 +112,7 @@ function buildSeed() {
 
   // two demo accounts so you can log in immediately
   const seedUser = (email, name, role, password) => {
-    seed.users[email] = {
+    seed.users[userKey('vipor', email)] = {
       id: `u_${seed.userSeq++}`, tenantId: 'vipor', email, name, role,
       passwordHash: bcrypt.hashSync(password, 10),
     };
@@ -164,26 +167,30 @@ const signToken = (u) => jwt.sign({ sub: u.id, tenantId: u.tenantId, role: u.rol
 // AUTH (public)
 // ===========================================================================
 app.post('/api/auth/register', async (req, res) => {
-  const { email, name, password, role = 'customer' } = req.body;
-  if (!email || !password || !name) return res.status(400).json({ error: 'email, name and password are required' });
-  if (db.users[email]) return res.status(409).json({ error: 'email already registered' });
+  const { tenant, email, name, password } = req.body;
+  if (!tenant || !email || !password || !name) {
+    return res.status(400).json({ error: 'garage code, email, name and password are required' });
+  }
+  if (!db.tenants[tenant]) return res.status(404).json({ error: 'unknown garage code' });
+  const key = userKey(tenant, email);
+  if (db.users[key]) return res.status(409).json({ error: 'email already registered for this garage' });
 
   const user = {
-    id: `u_${db.userSeq++}`, tenantId: 'vipor', email, name,
-    role: role === 'technician' ? 'technician' : 'customer', // never let the client self-assign admin
+    id: `u_${db.userSeq++}`, tenantId: tenant, email, name,
+    role: 'customer', // staff accounts are created by the garage admin, never self-assigned
     passwordHash: await bcrypt.hash(password, 10),
   };
-  db.users[email] = user;
+  db.users[key] = user;
   persist();
   res.status(201).json({ token: signToken(user), user: publicUser(user) });
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = db.users[email];
-  // same error whether the email is unknown or the password is wrong — don't leak which
+  const { tenant, email, password } = req.body;
+  const user = tenant ? db.users[userKey(tenant, email)] : null;
+  // same error whether the garage/email is unknown or the password is wrong — don't leak which
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    return res.status(401).json({ error: 'invalid email or password' });
+    return res.status(401).json({ error: 'invalid garage code, email or password' });
   }
   res.json({ token: signToken(user), user: publicUser(user) });
 });
@@ -199,7 +206,6 @@ app.post('/api/onboard', async (req, res) => {
     return res.status(400).json({ error: 'garageName, ownerName, email and password are required' });
   }
   if (!TIERS[tier]) return res.status(400).json({ error: 'unknown tier' });
-  if (db.users[email]) return res.status(409).json({ error: 'email already registered' });
   const id = slugify(garageName);
   if (!id || db.tenants[id]) return res.status(409).json({ error: 'garage name unavailable' });
 
@@ -212,7 +218,7 @@ app.post('/api/onboard', async (req, res) => {
     id: `u_${db.userSeq++}`, tenantId: id, email, name: ownerName, role: 'admin',
     passwordHash: await bcrypt.hash(password, 10),
   };
-  db.users[email] = admin;
+  db.users[userKey(id, email)] = admin;
   persist();
 
   res.status(201).json({
@@ -220,6 +226,14 @@ app.post('/api/onboard', async (req, res) => {
     tenant: { id, name: garageName, status: 'incomplete', tier },
     checkoutUrl: MOCK_BILLING ? `mock://checkout?tenant=${id}&tier=${tier}` : null,
   });
+});
+
+// PUBLIC — look up a garage by its code/slug so the app can validate it and show
+// the right branding on the login screen, before anyone is authenticated.
+app.get('/api/public/tenant/:slug', (req, res) => {
+  const t = db.tenants[req.params.slug];
+  if (!t) return res.status(404).json({ error: 'unknown garage code' });
+  res.json({ id: t.id, name: t.name, primaryColor: t.branding.primaryColor, logoUrl: t.branding.logoUrl });
 });
 
 // ===========================================================================
