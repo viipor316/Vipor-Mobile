@@ -30,7 +30,7 @@ function etaMinutes(from, to) {
 }
 
 export default function LiveTrackingScreen({ route, navigation }) {
-  const { jobId } = route.params;
+  const { jobId, quoteId } = route.params;
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
@@ -103,7 +103,14 @@ export default function LiveTrackingScreen({ route, navigation }) {
           </Pressable>
         </View>
 
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
+        <Pressable
+          onPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.replace('QuoteApproval', { quoteId })
+          }
+          hitSlop={8}
+        >
           <Text style={styles.done}>Close</Text>
         </Pressable>
       </View>

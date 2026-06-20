@@ -8,11 +8,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
+import { useAuth } from '../auth';
 import { api } from '../api';
 
 export default function QuoteApprovalScreen({ route, navigation }) {
   const { quoteId } = route.params;
   const theme = useTheme();
+  const { logout } = useAuth();
   const insets = useSafeAreaInsets();   // notch / status bar — correct on iOS & Android
 
   const [quote, setQuote] = useState(null);
@@ -40,7 +42,7 @@ export default function QuoteApprovalScreen({ route, navigation }) {
     setSubmitting(true);
     try {
       const job = await api.post(`/quotes/${quoteId}/approve`);
-      navigation.replace('LiveTracking', { jobId: job.id });
+      navigation.replace('LiveTracking', { jobId: job.id, quoteId });
     } catch (e) {
       Alert.alert('Approval failed', e.message ?? 'Please try again.');
       setSubmitting(false);
@@ -109,9 +111,15 @@ export default function QuoteApprovalScreen({ route, navigation }) {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => navigation.goBack?.()} hitSlop={12}>
-          <Text style={styles.back}>‹  Quote</Text>
-        </Pressable>
+        {navigation.canGoBack() ? (
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+            <Text style={styles.back}>‹  Quote</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={logout} hitSlop={12}>
+            <Text style={styles.back}>Log out</Text>
+          </Pressable>
+        )}
         <View style={[styles.pill, isOpen ? styles.pillSent : styles.pillMuted]}>
           <Text style={isOpen ? styles.pillSentText : styles.pillMutedText}>
             {quote.status.toUpperCase()}

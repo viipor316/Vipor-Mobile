@@ -29,9 +29,6 @@
           "apiKey": "PUT-YOUR-ANDROID-GOOGLE-MAPS-KEY-HERE"
         }
       }
-    },
-    "plugins": [
-      "expo-status-bar"
-    ]
+    }
   }
 }
