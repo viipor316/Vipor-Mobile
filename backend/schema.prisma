@@ -1,0 +1,215 @@
+// VIPOR Service — MVP schema (multi-tenant from day one)
+// Every business table carries tenantId. A query middleware scopes all reads/writes
+// to the caller's tenant so data can never cross garages.
+//
+// datasource is illustrative — point it at your existing DB.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------------------------------
+// TENANCY & BILLING
+// ----------------------------------------------------------------------------
+
+model Tenant {
+  id        String       @id @default(cuid())
+  slug      String       @unique          // subdomain / org code, e.g. "autopro"
+  name      String
+  status    TenantStatus @default(trialing) // flipped by Stripe webhooks
+  createdAt DateTime     @default(now())
+
+  branding     TenantBranding?
+  subscription Subscription?
+
+  users           User[]
+  customers       Customer[]
+  vehicles        Vehicle[]
+  serviceRequests ServiceRequest[]
+  quotes          Quote[]
+  jobs            Job[]
+}
+
+enum TenantStatus {
+  trialing
+  active
+  past_due   // payment failed → access gated
+  canceled
+}
+
+// White-label theme — one row per garage. The app fetches this at boot.
+model TenantBranding {
+  id           String  @id @default(cuid())
+  tenantId     String  @unique
+  tenant       Tenant  @relation(fields: [tenantId], references: [id])
+  logoUrl      String?
+  primaryColor String  @default("#c8102e")
+  locales      String[] @default(["en", "fr"])
+  // feature flags double as plan gates
+  trackingEnabled Boolean @default(true)
+  paymentsEnabled Boolean @default(false)
+  worldpacEnabled Boolean @default(false)
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  stripeCustomerId     String
+  stripeSubscriptionId String   @unique
+  tier                 String   // "starter" | "pro" | "fleet"
+  currentPeriodEnd     DateTime
+  updatedAt            DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// USERS  (one table, role-based — covers customers, techs, admins)
+// ----------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  email     String
+  name      String
+  role      Role     @default(customer)
+  createdAt DateTime @default(now())
+
+  customer Customer?
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+enum Role {
+  customer
+  technician
+  admin
+}
+
+model Customer {
+  id       String    @id @default(cuid())
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  userId   String    @unique
+  user     User      @relation(fields: [userId], references: [id])
+  phone    String?
+  vehicles Vehicle[]
+
+  @@index([tenantId])
+}
+
+model Vehicle {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  make       String
+  model      String
+  year       Int
+  vin        String?
+
+  serviceRequests ServiceRequest[]
+
+  @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------
+// THE CORE FLOW:  request → quote → job
+// ----------------------------------------------------------------------------
+
+model ServiceRequest {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  vehicleId   String
+  vehicle     Vehicle       @relation(fields: [vehicleId], references: [id])
+  description String
+  photoUrls   String[]      @default([])
+  status      RequestStatus @default(submitted)
+  createdAt   DateTime      @default(now())
+
+  quote Quote?
+
+  @@index([tenantId])
+}
+
+enum RequestStatus {
+  submitted
+  quoted
+  closed
+}
+
+model Quote {
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  requestId String      @unique
+  request   ServiceRequest @relation(fields: [requestId], references: [id])
+
+  // Flexible: store structured line items AND/OR an attached PDF from your
+  // current tooling. Covers manual quotes today, WORLDPAC import later.
+  lineItems Json        // [{ label, qty, unitPrice, kind: "part"|"labour" }]
+  markupPct Decimal     @default(0) @db.Decimal(5, 2)
+  total     Decimal     @db.Decimal(10, 2)
+  pdfUrl    String?
+  status    QuoteStatus @default(draft)
+  sentAt    DateTime?
+  decidedAt DateTime?
+  createdAt DateTime    @default(now())
+
+  job Job?
+
+  @@index([tenantId])
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  approved
+  rejected
+}
+
+model Job {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  quoteId   String    @unique
+  quote     Quote     @relation(fields: [quoteId], references: [id])
+  technicianId String?
+  status    JobStatus @default(pending)
+  createdAt DateTime  @default(now())
+
+  locations JobLocation[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+// pending → en_route → in_progress → completed.
+// Live tracking is allowed ONLY for en_route / in_progress (enforced in API).
+enum JobStatus {
+  pending
+  en_route
+  in_progress
+  completed
+  canceled
+}
+
+model JobLocation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  lat       Float
+  lng       Float
+  recordedAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([tenantId])
+}

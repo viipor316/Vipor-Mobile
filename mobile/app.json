@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Vipor Service",
+    "slug": "vipor-service",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "vipor",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vipor.service",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Vipor shows your technician's live location while a job is active.",
+        "NSCameraUsageDescription": "Vipor lets you photograph your vehicle issue to attach to a service request.",
+        "NSPhotoLibraryUsageDescription": "Vipor lets you attach photos of your vehicle issue from your library."
+      }
+    },
+    "android": {
+      "package": "com.vipor.service",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "PUT-YOUR-ANDROID-GOOGLE-MAPS-KEY-HERE"
+        }
+      }
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}

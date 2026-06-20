@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# persisted pilot data (backend) — never commit; back it up separately
+backend/data/
+*.tmp
+
+# secrets
+.env
+.env.local
+.env.*.local
+
+# expo / build
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
