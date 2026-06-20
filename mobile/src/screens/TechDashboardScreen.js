@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { useAuth } from '../auth';
+import { useLocationPublisher } from '../useLocationPublisher';
 import { api } from '../api';
 
 const fmt = (n) => (n == null ? '—' : `$${Number(n).toFixed(2)}`);
@@ -67,6 +68,11 @@ export default function TechDashboardScreen({ navigation }) {
   }
 
   const activeCount = jobs.filter((j) => !['completed', 'canceled'].includes(j.status)).length;
+
+  // Stream this device's GPS for whichever job is currently being driven, so the
+  // customer's map updates. Server only accepts pings while en_route/in_progress.
+  const driving = jobs.find((j) => ['en_route', 'in_progress'].includes(j.status));
+  useLocationPublisher(driving?.id, !!driving);
 
   if (loading) {
     return (
