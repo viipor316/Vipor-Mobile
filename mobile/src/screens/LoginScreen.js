@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth';
 import { useTheme } from '../theme';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const { login, register } = useAuth();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -74,6 +74,10 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
+        <Pressable onPress={() => navigation?.navigate('Onboarding')} hitSlop={8}>
+          <Text style={styles.onboard}>Own a garage? <Text style={styles.onboardLink}>Set up your garage →</Text></Text>
+        </Pressable>
+
         <Text style={styles.demo}>Demo garage code: vipor · customer@demo.com / password</Text>
       </View>
     </KeyboardAvoidingView>
@@ -93,5 +97,7 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.6 },
   switch: { color: MUTED, fontSize: 13, textAlign: 'center', marginTop: 16 },
-  demo: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 22 },
+  onboard: { color: '#aab4c4', fontSize: 13, textAlign: 'center', marginTop: 24 },
+  onboardLink: { color: '#fff', fontWeight: '700' },
+  demo: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 18 },
 });

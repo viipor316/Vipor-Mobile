@@ -60,8 +60,20 @@ export function AuthProvider({ children }) {
     await persist(token, u);
   };
 
+  // create a new garage (tenant + admin) and sign the owner in. The tenant starts
+  // inactive; the app's paywall handles payment. Returns the onboard response
+  // (tenant + checkoutUrl) for the caller to continue to billing.
+  const onboard = async (payload) => {
+    const res = await api.post('/onboard', payload);
+    setAuthToken(res.token);
+    await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+    setUser(await api.get('/me'));
+    refreshTheme();
+    return res;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, booting, login, register, logout }}>
+    <AuthContext.Provider value={{ user, booting, login, register, onboard, logout }}>
       {children}
     </AuthContext.Provider>
   );

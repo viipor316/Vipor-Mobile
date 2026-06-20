@@ -301,6 +301,18 @@ app.post('/api/billing/checkout', requireRole('admin'), async (req, res) => {
   res.json({ url: session.url });
 });
 
+// DEV ONLY (mock billing): activate the tenant as if checkout completed, so the
+// in-app paywall works without a Stripe account. Disabled once Stripe is configured.
+app.post('/api/billing/activate-mock', requireRole('admin'), (req, res) => {
+  if (!MOCK_BILLING) return res.status(400).json({ error: 'mock activation is disabled when Stripe is configured' });
+  const t = db.tenants[req.tenantId];
+  if (!t) return res.status(404).json({ error: 'tenant not found' });
+  t.status = 'active';
+  if (TIERS[req.body.tier]) t.tier = req.body.tier;
+  persist();
+  res.json({ id: t.id, status: t.status, tier: t.tier });
+});
+
 // manage card / cancel via Stripe Billing Portal
 app.post('/api/billing/portal', requireRole('admin'), async (req, res) => {
   const tenant = db.tenants[req.tenantId];
@@ -396,6 +408,31 @@ app.post('/api/quotes', requireRole('technician', 'admin'), (req, res) => {
   r.status = 'quoted';
   persist();
   res.status(201).json(db.quotes[id]);
+});
+
+// ---- admin: team management ----------------------------------------------
+// list the garage's staff (technicians + admins)
+app.get('/api/staff', requireRole('admin'), (req, res) => {
+  const list = Object.values(db.users)
+    .filter((u) => u.tenantId === req.tenantId && (u.role === 'technician' || u.role === 'admin'))
+    .map(publicUser);
+  res.json(list);
+});
+
+// admin creates a staff account within their own tenant
+app.post('/api/staff', requireRole('admin'), async (req, res) => {
+  const { name, email, password, role = 'technician' } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ error: 'name, email and password are required' });
+  const wantRole = role === 'admin' ? 'admin' : 'technician';
+  const key = userKey(req.tenantId, email);
+  if (db.users[key]) return res.status(409).json({ error: 'email already registered for this garage' });
+  const user = {
+    id: `u_${db.userSeq++}`, tenantId: req.tenantId, email, name, role: wantRole,
+    passwordHash: await bcrypt.hash(password, 10),
+  };
+  db.users[key] = user;
+  persist();
+  res.status(201).json(publicUser(user));
 });
 
 // tech/admin jobs list — flattened for the dashboard

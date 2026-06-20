@@ -89,9 +89,16 @@ export default function TechDashboardScreen({ navigation }) {
           <Text style={styles.brand}>{theme.name || 'Vipor'}</Text>
           <Text style={styles.headerNote}>{user?.role === 'admin' ? 'Admin' : 'Technician'} · {user?.name}</Text>
         </View>
-        <Pressable onPress={logout} hitSlop={12}>
-          <Text style={styles.logout}>Log out</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+          {user?.role === 'admin' && (
+            <Pressable onPress={() => navigation.navigate('Team')} hitSlop={12}>
+              <Text style={styles.logout}>Team</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={logout} hitSlop={12}>
+            <Text style={styles.logout}>Log out</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
