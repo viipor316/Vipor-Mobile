@@ -321,7 +321,9 @@ app.get('/api/tenant/branding', (req, res) => {
 app.get('/api/quotes/:id', (req, res) => {
   const q = db.quotes[req.params.id];
   if (!q || q.tenantId !== req.tenantId) return res.status(404).json({ error: 'quote not found' });
-  res.json(q);
+  // surface the job created on approval so the customer can re-open live tracking
+  const job = Object.values(db.jobs).find((j) => j.quoteId === q.id && j.tenantId === req.tenantId);
+  res.json({ ...q, jobId: job?.id ?? null });
 });
 
 // customers approve

@@ -106,6 +106,7 @@ export default function QuoteApprovalScreen({ route, navigation }) {
 
   const fmt = (n) => `$${Number(n).toFixed(2)}`;
   const isOpen = quote.status === 'sent';
+  const isApproved = quote.status === 'approved';
   const v = quote.request?.vehicle;
 
   return (
@@ -161,6 +162,9 @@ export default function QuoteApprovalScreen({ route, navigation }) {
         {isOpen && (
           <Text style={styles.footnote}>Approving books the job and unlocks live tracking.</Text>
         )}
+        {isApproved && (
+          <Text style={styles.footnote}>Quote approved — your job is booked.</Text>
+        )}
       </ScrollView>
 
       {isOpen && (
@@ -172,6 +176,17 @@ export default function QuoteApprovalScreen({ route, navigation }) {
           </Pressable>
           <Pressable onPress={handleDecline} disabled={submitting} style={styles.decline}>
             <Text style={styles.declineText}>Decline</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {isApproved && quote.jobId && (
+        <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+          <Pressable
+            onPress={() => navigation.navigate('LiveTracking', { jobId: quote.jobId, quoteId })}
+            style={[styles.approve, { backgroundColor: theme.primaryColor }]}
+          >
+            <Text style={styles.approveText}>View live tracking</Text>
           </Pressable>
         </View>
       )}
