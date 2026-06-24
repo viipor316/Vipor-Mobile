@@ -3,11 +3,21 @@
 // session on app launch. Wraps the app so any screen can call useAuth().
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { api, setAuthToken, setUnauthorizedHandler } from './api';
 import { useTheme } from './theme';
 
 const TOKEN_KEY = 'vipor.token';
+
+// expo-secure-store has no web implementation, so on web we fall back to
+// localStorage; native keeps using the OS secure store.
+const isWeb = Platform.OS === 'web';
+const store = {
+  get: () => (isWeb ? Promise.resolve(globalThis.localStorage?.getItem(TOKEN_KEY) ?? null) : SecureStore.getItemAsync(TOKEN_KEY)),
+  set: (v) => (isWeb ? Promise.resolve(globalThis.localStorage?.setItem(TOKEN_KEY, v)) : SecureStore.setItemAsync(TOKEN_KEY, v)),
+  del: () => (isWeb ? Promise.resolve(globalThis.localStorage?.removeItem(TOKEN_KEY)) : SecureStore.deleteItemAsync(TOKEN_KEY)),
+};
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -19,7 +29,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     setAuthToken(null);
     setUser(null);
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await store.del();
   }, []);
 
   // an expired/invalid token anywhere → drop the session
@@ -29,14 +39,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const token = await store.get();
         if (token) {
           setAuthToken(token);
           setUser(await api.get('/me'));   // verifies the token is still valid
           refreshTheme();                  // re-load the tenant's branding
         }
       } catch {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        await store.del();
       } finally {
         setBooting(false);
       }
@@ -45,7 +55,7 @@ export function AuthProvider({ children }) {
 
   async function persist(token, u) {
     setAuthToken(token);
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    await store.set(token);
     setUser(u);
     refreshTheme();
   }
@@ -66,7 +76,7 @@ export function AuthProvider({ children }) {
   const onboard = async (payload) => {
     const res = await api.post('/onboard', payload);
     setAuthToken(res.token);
-    await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+    await store.set(res.token);
     setUser(await api.get('/me'));
     refreshTheme();
     return res;
