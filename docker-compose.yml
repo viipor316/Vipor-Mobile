@@ -1,0 +1,27 @@
+# VIPOR backend — deploy on TrueNAS Scale (or any Docker host).
+#
+#   1. Clone this repo onto the box.
+#   2. Create a .env next to this file with at least:  JWT_SECRET=<long random string>
+#      (generate one:  openssl rand -hex 32)
+#   3. docker compose up -d --build
+#
+# Data persists in ./vipor-data on the host. Point your Cloudflare tunnel's
+# public hostname at  http://<this-host>:3001  (or http://localhost:3001 if
+# cloudflared runs on the host network).
+
+services:
+  vipor-api:
+    build: ./backend
+    image: vipor-api:latest
+    container_name: vipor-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      SEED_DEMO: "true"           # set "false" for a clean pilot (garages self-onboard)
+      CORS_ORIGIN: "*"            # lock to your app origin once known
+      DATA_FILE: /data/vipor-db.json
+    volumes:
+      - ./vipor-data:/data
