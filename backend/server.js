@@ -484,6 +484,21 @@ app.patch('/api/platform/tenants/:id', requireRole('superadmin'), (req, res) => 
   res.json({ id: t.id, name: t.name, status: t.status, tier: t.tier });
 });
 
+// permanently delete a garage and everything scoped to it
+app.delete('/api/platform/tenants/:id', requireRole('superadmin'), (req, res) => {
+  const id = req.params.id;
+  if (id === 'platform') return res.status(400).json({ error: 'the platform cannot be deleted' });
+  if (!db.tenants[id]) return res.status(404).json({ error: 'garage not found' });
+  delete db.tenants[id];
+  for (const coll of ['users', 'requests', 'quotes', 'jobs']) {
+    for (const key of Object.keys(db[coll])) {
+      if (db[coll][key].tenantId === id) delete db[coll][key];
+    }
+  }
+  persist();
+  res.json({ ok: true, id });
+});
+
 app.get('/api/quotes/:id', (req, res) => {
   const q = db.quotes[req.params.id];
   if (!q || q.tenantId !== req.tenantId) return res.status(404).json({ error: 'quote not found' });

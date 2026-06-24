@@ -46,6 +46,24 @@ export default function PlatformAdminScreen() {
     catch (e) { setTenants((xs) => xs.map((x) => (x.id === g.id ? { ...x, status: g.status } : x))); Alert.alert('Failed', e.message ?? ''); }
   }
 
+  function deleteGarage(g) {
+    Alert.alert(
+      `Delete ${g.name}?`,
+      `This permanently removes the garage and all ${g.users} user(s), requests, quotes and jobs. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            setTenants((xs) => xs.filter((x) => x.id !== g.id));
+            try { await api.del(`/platform/tenants/${g.id}`); }
+            catch (e) { Alert.alert('Could not delete', e.message ?? ''); load(); }
+          },
+        },
+      ],
+    );
+  }
+
   if (loading) return <View style={[styles.screen, styles.center]}><ActivityIndicator color={ui.navy} /></View>;
 
   return (
@@ -98,6 +116,9 @@ export default function PlatformAdminScreen() {
               <Pressable style={[styles.statusBtn, { backgroundColor: active ? '#e7f6ed' : '#fdeaec' }]} onPress={() => toggleGarage(g)}>
                 <Text style={[styles.statusText, { color: active ? '#1e6f43' : '#c8102e' }]}>{active ? 'Active' : 'Suspended'}</Text>
               </Pressable>
+              <Pressable style={styles.del} onPress={() => deleteGarage(g)} hitSlop={8}>
+                <Text style={styles.delText}>🗑</Text>
+              </Pressable>
             </View>
           );
         })}
@@ -137,4 +158,6 @@ const styles = StyleSheet.create({
   gSub: { color: ui.muted, fontSize: 12, marginTop: 3 },
   statusBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
   statusText: { fontSize: 12, fontWeight: '700' },
+  del: { marginLeft: 8, padding: 4 },
+  delText: { fontSize: 16 },
 });

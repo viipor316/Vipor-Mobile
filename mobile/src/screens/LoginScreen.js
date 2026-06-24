@@ -1,12 +1,14 @@
-// VIPOR Service — login / register screen.
+// VIPOR Service — login / register.
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, Image, ActivityIndicator, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  View, Text, TextInput, Pressable, Image, StyleSheet,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth';
 import { useTheme } from '../theme';
+import { ui } from '../ui';
+import Button from '../components/Button';
 
 export default function LoginScreen({ navigation }) {
   const { login, register } = useAuth();
@@ -14,7 +16,7 @@ export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState('login');     // 'login' | 'register'
-  const [garage, setGarage] = useState('vipor'); // tenant code (prefilled for the demo)
+  const [garage, setGarage] = useState('vipor');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,11 +24,7 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState(null);
 
   const normGarage = () => garage.trim().toLowerCase();
-
-  // brand the screen for the entered garage as soon as the field loses focus
-  function previewGarage() {
-    theme.previewTenant?.(normGarage());
-  }
+  const previewGarage = () => theme.previewTenant?.(normGarage());
 
   async function submit() {
     setError(null); setBusy(true);
@@ -42,66 +40,87 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.inner, { paddingTop: insets.top + 60 }]}>
-        {theme.logoUrl ? (
-          <Image source={{ uri: theme.logoUrl }} style={styles.logo} resizeMode="contain" />
-        ) : null}
-        <Text style={[styles.brand, { color: theme.primaryColor }]}>{theme.name || 'Vipor'}</Text>
-        <Text style={styles.tagline}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</Text>
+      <ScrollView contentContainerStyle={[styles.inner, { paddingTop: insets.top + 56 }]} keyboardShouldPersistTaps="handled">
+        <View style={styles.brandWrap}>
+          {theme.logoUrl
+            ? <Image source={{ uri: theme.logoUrl }} style={styles.logo} resizeMode="contain" />
+            : <View style={[styles.logoMark, { backgroundColor: theme.primaryColor }]}>
+                <Text style={styles.logoMarkText}>{(theme.name || 'V').slice(0, 1).toUpperCase()}</Text>
+              </View>}
+          <Text style={styles.brand}>{theme.name || 'Vipor'}</Text>
+          <Text style={styles.tagline}>Service that comes to you</Text>
+        </View>
 
         <View style={styles.card}>
-          <TextInput style={styles.input} placeholder="Garage code (e.g. vipor)" placeholderTextColor="#aab2bd"
-            value={garage} onChangeText={setGarage} onBlur={previewGarage}
-            autoCapitalize="none" autoCorrect={false} />
+          {/* segmented login / signup */}
+          <View style={styles.segment}>
+            {['login', 'register'].map((m) => {
+              const on = mode === m;
+              return (
+                <Pressable key={m} style={[styles.segBtn, on && styles.segBtnOn]} onPress={() => { setMode(m); setError(null); }}>
+                  <Text style={[styles.segText, on && { color: ui.ink }]}>{m === 'login' ? 'Log in' : 'Sign up'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.lbl}>Garage code</Text>
+          <TextInput style={ui.input} placeholder="e.g. vipor" placeholderTextColor={ui.muted}
+            value={garage} onChangeText={setGarage} onBlur={previewGarage} autoCapitalize="none" autoCorrect={false} />
+
           {mode === 'register' && (
-            <TextInput style={styles.input} placeholder="Full name" placeholderTextColor="#aab2bd"
-              value={name} onChangeText={setName} autoCapitalize="words" />
+            <>
+              <Text style={styles.lbl}>Full name</Text>
+              <TextInput style={ui.input} placeholder="Your name" placeholderTextColor={ui.muted}
+                value={name} onChangeText={setName} autoCapitalize="words" />
+            </>
           )}
-          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#aab2bd"
+
+          <Text style={styles.lbl}>Email</Text>
+          <TextInput style={ui.input} placeholder="you@email.com" placeholderTextColor={ui.muted}
             value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-          <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#aab2bd"
+
+          <Text style={styles.lbl}>Password</Text>
+          <TextInput style={ui.input} placeholder="••••••••" placeholderTextColor={ui.muted}
             value={password} onChangeText={setPassword} secureTextEntry />
 
           {error && <Text style={styles.error}>{error}</Text>}
 
-          <Pressable style={[styles.btn, { backgroundColor: theme.primaryColor }, busy && styles.disabled]}
-            disabled={busy} onPress={submit}>
-            {busy ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>{mode === 'login' ? 'Log in' : 'Sign up'}</Text>}
-          </Pressable>
-
-          <Pressable onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); }} hitSlop={8}>
-            <Text style={styles.switch}>
-              {mode === 'login' ? "No account? Sign up" : 'Have an account? Log in'}
-            </Text>
-          </Pressable>
+          <Button title={mode === 'login' ? 'Log in' : 'Create account'} onPress={submit}
+            color={theme.primaryColor} loading={busy} style={{ marginTop: 18 }} />
         </View>
 
-        <Pressable onPress={() => navigation?.navigate('Onboarding')} hitSlop={8}>
-          <Text style={styles.onboard}>Own a garage? <Text style={styles.onboardLink}>Set up your garage →</Text></Text>
+        <Pressable onPress={() => navigation?.navigate('Onboarding')} hitSlop={8} style={styles.onboard}>
+          <Text style={styles.onboardText}>Own a garage?  <Text style={styles.onboardLink}>Set up your garage →</Text></Text>
         </Pressable>
 
-        <Text style={styles.demo}>Demo garage code: vipor · customer@demo.com / password</Text>
-      </View>
+        <Text style={styles.demo}>Demo · code: vipor · customer@demo.com / password</Text>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const NAVY = '#1b2434', INK = '#1a2230', MUTED = '#8a93a0';
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: NAVY },
-  inner: { flex: 1, paddingHorizontal: 28 },
-  logo: { width: 96, height: 96, alignSelf: 'center', marginBottom: 12 },
-  brand: { color: '#fff', fontSize: 34, fontWeight: '700', textAlign: 'center' },
-  tagline: { color: '#aab4c4', fontSize: 14, textAlign: 'center', marginTop: 6, marginBottom: 28 },
-  card: { backgroundColor: '#fff', borderRadius: 20, padding: 22 },
-  input: { backgroundColor: '#f6f7f9', borderRadius: 10, borderWidth: 1, borderColor: '#e3e7ed', paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: INK, marginBottom: 12 },
-  error: { color: '#c8102e', fontSize: 13, marginBottom: 10 },
-  btn: { borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.6 },
-  switch: { color: MUTED, fontSize: 13, textAlign: 'center', marginTop: 16 },
-  onboard: { color: '#aab4c4', fontSize: 13, textAlign: 'center', marginTop: 24 },
+  screen: { flex: 1, backgroundColor: ui.navy },
+  inner: { paddingHorizontal: 24, paddingBottom: 40 },
+  brandWrap: { alignItems: 'center', marginBottom: 26 },
+  logo: { width: 84, height: 84, marginBottom: 14 },
+  logoMark: { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  logoMarkText: { color: '#fff', fontSize: 34, fontWeight: '800' },
+  brand: { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: -0.4 },
+  tagline: { color: '#9aa6bd', fontSize: 14, marginTop: 6 },
+
+  card: { backgroundColor: ui.surface, borderRadius: ui.rLg, padding: 22, ...ui.shadow },
+  segment: { flexDirection: 'row', backgroundColor: ui.field, borderRadius: 12, padding: 4, marginBottom: 8 },
+  segBtn: { flex: 1, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  segBtnOn: { backgroundColor: '#fff', ...ui.shadowSm },
+  segText: { fontSize: 14, fontWeight: '700', color: ui.muted },
+
+  lbl: { ...ui.label, marginTop: 14, marginBottom: 7 },
+  error: { color: ui.red, fontSize: 13, marginTop: 12, fontWeight: '600' },
+
+  onboard: { alignItems: 'center', marginTop: 22 },
+  onboardText: { color: '#9aa6bd', fontSize: 14 },
   onboardLink: { color: '#fff', fontWeight: '700' },
-  demo: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 18 },
+  demo: { color: '#5d6678', fontSize: 12, textAlign: 'center', marginTop: 18 },
 });
