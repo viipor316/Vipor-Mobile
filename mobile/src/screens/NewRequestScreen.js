@@ -20,7 +20,17 @@ export default function NewRequestScreen({ navigation }) {
   const [model, setModel] = useState('');
   const [vin, setVin] = useState('');
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState(null);     // preferred booking date (YYYY-MM-DD)
+  const [slot, setSlot] = useState('Morning');
   const [busy, setBusy] = useState(false);
+
+  // next 14 days for the booking calendar
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = new Date();
+  const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d; });
+  const SLOTS = ['Morning', 'Afternoon', 'Evening'];
 
   async function submit() {
     if (!make.trim() || !model.trim() || !description.trim()) {
@@ -36,6 +46,8 @@ export default function NewRequestScreen({ navigation }) {
           vin: vin.trim().toUpperCase() || null,
         },
         description: description.trim(),
+        preferredDate: date,
+        preferredSlot: date ? slot : null,
       });
       navigation.goBack(); // home refetches on focus
     } catch (e) {
@@ -75,6 +87,36 @@ export default function NewRequestScreen({ navigation }) {
         <TextInput style={[styles.input, styles.textarea]} placeholder="e.g. grinding noise when braking"
           placeholderTextColor="#aab2bd" value={description} onChangeText={setDescription}
           multiline textAlignVertical="top" />
+
+        <Text style={styles.label}>Preferred date <Text style={styles.optional}>(optional)</Text></Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+          {days.map((d) => {
+            const key = iso(d);
+            const on = date === key;
+            return (
+              <Pressable key={key} onPress={() => setDate(on ? null : key)}
+                style={[styles.day, on && { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor }]}>
+                <Text style={[styles.dayWd, on && styles.dayOnText]}>{WD[d.getDay()]}</Text>
+                <Text style={[styles.dayNum, on && styles.dayOnText]}>{d.getDate()}</Text>
+                <Text style={[styles.dayMo, on && styles.dayOnText]}>{MO[d.getMonth()]}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {date && (
+          <View style={styles.slots}>
+            {SLOTS.map((s) => {
+              const on = slot === s;
+              return (
+                <Pressable key={s} onPress={() => setSlot(s)}
+                  style={[styles.slot, on && { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor }]}>
+                  <Text style={[styles.slotText, on && { color: '#fff' }]}>{s}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
@@ -106,6 +148,14 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#e3e7ed', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: INK },
   vinInput: { fontVariant: ['tabular-nums'], letterSpacing: 1 },
   textarea: { height: 110 },
+  day: { width: 58, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e3e7ed', backgroundColor: '#fff', alignItems: 'center' },
+  dayWd: { color: MUTED, fontSize: 11, fontWeight: '600' },
+  dayNum: { color: INK, fontSize: 18, fontWeight: '800', marginVertical: 1 },
+  dayMo: { color: MUTED, fontSize: 11 },
+  dayOnText: { color: '#fff' },
+  slots: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  slot: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e3e7ed', backgroundColor: '#fff', alignItems: 'center' },
+  slotText: { color: INK, fontSize: 13, fontWeight: '700' },
   actions: { paddingHorizontal: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e3e7ed', backgroundColor: '#eef1f5' },
   primary: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },

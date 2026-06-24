@@ -23,6 +23,7 @@ import TeamScreen from './src/screens/TeamScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import BusinessProfileScreen from './src/screens/BusinessProfileScreen';
 import SubscriptionScreen from './src/screens/SubscriptionScreen';
+import PlatformAdminScreen from './src/screens/PlatformAdminScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -88,6 +89,16 @@ function Root() {
   const { user, booting } = useAuth();
   if (booting) return <Spinner />;
   if (!user) return <AuthNav />;
+
+  if (user.role === 'superadmin') {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="PlatformAdmin" component={PlatformAdminScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
 
   const isStaff = user.role === 'technician' || user.role === 'admin';
   return isStaff ? <StaffArea /> : <CustomerNav />;

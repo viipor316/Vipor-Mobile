@@ -88,6 +88,7 @@ export default function CustomerHomeScreen({ navigation }) {
                   </View>
                 </View>
                 <Text style={styles.cardIssue}>“{r.description}”</Text>
+                {r.preferredDate ? <Text style={styles.booking}>📅 {r.preferredDate}{r.preferredSlot ? ` · ${r.preferredSlot}` : ''}</Text> : null}
                 {r.quote?.total != null && (
                   <Text style={styles.cardTotal}>Estimate: ${Number(r.quote.total).toFixed(2)}</Text>
                 )}
@@ -122,6 +123,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardName: { color: INK, fontSize: 15, fontWeight: '700', flexShrink: 1, paddingRight: 10 },
   cardIssue: { color: MUTED, fontSize: 13, marginTop: 6, fontStyle: 'italic' },
+  booking: { color: '#2563eb', fontSize: 12, fontWeight: '600', marginTop: 6 },
   cardTotal: { color: '#4b5563', fontSize: 13, marginTop: 6, fontWeight: '600' },
   cardLink: { fontSize: 13, fontWeight: '700', marginTop: 10 },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },

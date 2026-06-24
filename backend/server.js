@@ -45,8 +45,9 @@ if (!process.env.JWT_SECRET) {
   console.warn('⚠  Using the insecure dev JWT secret — set JWT_SECRET before any real pilot.');
 }
 
-// ---- subscription tiers (illustrative pricing) ----------------------------
-const TIERS = {
+// ---- subscription tiers — default pricing, seeded into the editable store ---
+// The platform super-admin can change name/price at runtime (db.tiers).
+const DEFAULT_TIERS = {
   starter: { name: 'Starter', price: 49, stripePriceId: 'price_starter', features: { tracking: false, payments: false, maxTechs: 1 } },
   pro:     { name: 'Pro',     price: 99, stripePriceId: 'price_pro',     features: { tracking: true,  payments: false, maxTechs: 3 } },
   fleet:   { name: 'Fleet',   price: 199, stripePriceId: 'price_fleet',  features: { tracking: true,  payments: true,  maxTechs: 999 } },
@@ -66,8 +67,23 @@ const userKey = (tenantId, email) => `${tenantId}:${String(email).toLowerCase()}
 function buildSeed() {
   const seed = {
     tenants: {}, users: {}, requests: {}, quotes: {}, jobs: {},
+    tiers: JSON.parse(JSON.stringify(DEFAULT_TIERS)), // editable by the super-admin
     reqSeq: 2000, quoteSeq: 2000, jobSeq: 30, userSeq: 1,
   };
+
+  // Platform owner (super-admin) — manages all garages + subscription pricing.
+  // Logs in with garage code "platform".
+  seed.tenants.platform = {
+    id: 'platform', name: 'VIPOR Platform', status: 'active', tier: 'fleet',
+    stripeCustomerId: null, stripeSubscriptionId: null,
+    branding: { name: 'VIPOR', primaryColor: '#1b2434', logoUrl: null, locales: ['en'] },
+    profile: { phone: '', email: 'owner@vipor.ca', address: '', website: 'vipor.ca', hours: '' },
+  };
+  seed.users[userKey('platform', 'owner@vipor.ca')] = {
+    id: 'u_platform', tenantId: 'platform', email: 'owner@vipor.ca',
+    name: 'Platform Owner', role: 'superadmin', passwordHash: bcrypt.hashSync('password', 10),
+  };
+
   if (!SEED_DEMO) return seed;
 
   // tenantId -> garage record (branding + subscription state)
@@ -148,6 +164,33 @@ function loadDb() {
 
 const db = loadDb();
 
+// Migration: ensure singletons exist on data files created by older versions
+// (so upgrading doesn't require wiping the volume).
+function ensureDefaults(d) {
+  for (const k of ['tenants', 'users', 'requests', 'quotes', 'jobs']) d[k] = d[k] || {};
+  if (!d.tiers) d.tiers = JSON.parse(JSON.stringify(DEFAULT_TIERS));
+  if (d.reqSeq == null) d.reqSeq = 2000;
+  if (d.quoteSeq == null) d.quoteSeq = 2000;
+  if (d.jobSeq == null) d.jobSeq = 30;
+  if (d.userSeq == null) d.userSeq = 1;
+  if (!d.tenants.platform) {
+    d.tenants.platform = {
+      id: 'platform', name: 'VIPOR Platform', status: 'active', tier: 'fleet',
+      stripeCustomerId: null, stripeSubscriptionId: null,
+      branding: { name: 'VIPOR', primaryColor: '#1b2434', logoUrl: null, locales: ['en'] },
+      profile: { phone: '', email: 'owner@vipor.ca', address: '', website: 'vipor.ca', hours: '' },
+    };
+  }
+  const pk = userKey('platform', 'owner@vipor.ca');
+  if (!d.users[pk]) {
+    d.users[pk] = {
+      id: 'u_platform', tenantId: 'platform', email: 'owner@vipor.ca',
+      name: 'Platform Owner', role: 'superadmin', passwordHash: bcrypt.hashSync('password', 10),
+    };
+  }
+}
+ensureDefaults(db);
+
 // Debounced atomic save: write to a temp file then rename, so a crash mid-write
 // can never corrupt the store. flushNow() forces a synchronous write on exit.
 let saveTimer = null;
@@ -216,7 +259,7 @@ app.post('/api/onboard', async (req, res) => {
   if (!garageName || !email || !password || !ownerName) {
     return res.status(400).json({ error: 'garageName, ownerName, email and password are required' });
   }
-  if (!TIERS[tier]) return res.status(400).json({ error: 'unknown tier' });
+  if (!db.tiers[tier]) return res.status(400).json({ error: 'unknown tier' });
   const id = slugify(garageName);
   if (!id || db.tenants[id]) return res.status(409).json({ error: 'garage name unavailable' });
 
@@ -295,16 +338,16 @@ app.get('/api/tenant/status', (req, res) => {
 
 // ---- billing --------------------------------------------------------------
 app.get('/api/billing/tiers', (_req, res) =>
-  res.json(Object.entries(TIERS).map(([id, t]) => ({ id, name: t.name, price: t.price, features: t.features }))));
+  res.json(Object.entries(db.tiers).map(([id, t]) => ({ id, name: t.name, price: t.price, features: t.features }))));
 
 // admin starts/changes a subscription -> Stripe Checkout URL
 app.post('/api/billing/checkout', requireRole('admin'), async (req, res) => {
-  if (!TIERS[req.body.tier]) return res.status(400).json({ error: 'unknown tier' });
+  if (!db.tiers[req.body.tier]) return res.status(400).json({ error: 'unknown tier' });
   const tenant = db.tenants[req.tenantId];
   if (MOCK_BILLING) return res.json({ url: `mock://checkout?tenant=${tenant.id}&tier=${req.body.tier}`, mock: true });
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    line_items: [{ price: TIERS[req.body.tier].stripePriceId, quantity: 1 }],
+    line_items: [{ price: db.tiers[req.body.tier].stripePriceId, quantity: 1 }],
     success_url: `${req.body.returnUrl}?status=success`,
     cancel_url: `${req.body.returnUrl}?status=cancel`,
     client_reference_id: tenant.id,
@@ -320,7 +363,7 @@ app.post('/api/billing/activate-mock', requireRole('admin'), (req, res) => {
   const t = db.tenants[req.tenantId];
   if (!t) return res.status(404).json({ error: 'tenant not found' });
   t.status = 'active';
-  if (TIERS[req.body.tier]) t.tier = req.body.tier;
+  if (db.tiers[req.body.tier]) t.tier = req.body.tier;
   persist();
   res.json({ id: t.id, status: t.status, tier: t.tier });
 });
@@ -345,7 +388,7 @@ app.get('/api/tenant/branding', (req, res) => {
     phone: t.profile?.phone || null,
     email: t.profile?.email || null,
     address: t.profile?.address || null,
-    features: (TIERS[t.tier] || TIERS.starter).features,
+    features: (db.tiers[t.tier] || db.tiers.starter).features,
   });
 });
 
@@ -374,6 +417,46 @@ app.patch('/api/tenant/profile', requireRole('admin'), (req, res) => {
   }
   persist();
   res.json(tenantView(t));
+});
+
+// ===========================================================================
+// PLATFORM SUPER-ADMIN — manage every garage + subscription pricing
+// ===========================================================================
+app.get('/api/platform/tiers', requireRole('superadmin'), (_req, res) => {
+  res.json(Object.entries(db.tiers).map(([id, t]) => ({ id, ...t })));
+});
+
+app.patch('/api/platform/tiers/:id', requireRole('superadmin'), (req, res) => {
+  const t = db.tiers[req.params.id];
+  if (!t) return res.status(404).json({ error: 'unknown tier' });
+  if (typeof req.body.name === 'string' && req.body.name.trim()) t.name = req.body.name.trim();
+  if (req.body.price != null && !isNaN(Number(req.body.price))) t.price = Number(req.body.price);
+  if (typeof req.body.stripePriceId === 'string') t.stripePriceId = req.body.stripePriceId;
+  if (req.body.features && typeof req.body.features === 'object') t.features = { ...t.features, ...req.body.features };
+  persist();
+  res.json({ id: req.params.id, ...t });
+});
+
+app.get('/api/platform/tenants', requireRole('superadmin'), (_req, res) => {
+  const list = Object.values(db.tenants)
+    .filter((t) => t.id !== 'platform')
+    .map((t) => ({
+      id: t.id, name: t.name, status: t.status, tier: t.tier,
+      primaryColor: t.branding?.primaryColor || '#1b2434',
+      phone: t.profile?.phone || null,
+      users: Object.values(db.users).filter((u) => u.tenantId === t.id).length,
+      jobs: Object.values(db.jobs).filter((j) => j.tenantId === t.id).length,
+    }));
+  res.json(list);
+});
+
+app.patch('/api/platform/tenants/:id', requireRole('superadmin'), (req, res) => {
+  const t = db.tenants[req.params.id];
+  if (!t || t.id === 'platform') return res.status(404).json({ error: 'garage not found' });
+  const allowed = ['active', 'past_due', 'canceled', 'incomplete', 'trialing'];
+  if (typeof req.body.status === 'string' && allowed.includes(req.body.status)) t.status = req.body.status;
+  persist();
+  res.json({ id: t.id, name: t.name, status: t.status, tier: t.tier });
 });
 
 app.get('/api/quotes/:id', (req, res) => {
@@ -410,14 +493,16 @@ const fmtVehicle = (v) =>
 
 // customer submits a service request -> lands in the tech inbox
 app.post('/api/requests', (req, res) => {
-  const { vehicle = null, description, photoUrls = [] } = req.body;
+  const { vehicle = null, description, photoUrls = [], preferredDate = null, preferredSlot = null } = req.body;
   if (!description) return res.status(400).json({ error: 'description is required' });
   const me = db.users[userKey(req.tenantId, req.user.email)];
   const id = `r_${db.reqSeq++}`;
   db.requests[id] = {
     id, tenantId: req.tenantId, status: 'open',
     customerId: req.user.id, customerName: me?.name || req.user.email,
-    vehicle, description, photoUrls, createdAt: Date.now(),
+    vehicle, description, photoUrls,
+    preferredDate, preferredSlot, // requested booking date (YYYY-MM-DD) + slot label
+    createdAt: Date.now(),
   };
   persist();
   res.status(201).json(db.requests[id]);
