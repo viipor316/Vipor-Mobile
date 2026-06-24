@@ -4,7 +4,7 @@
 // job is en_route/in_progress, so the map only animates once dispatched.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform, Linking, Alert } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 // iOS Expo Go → Apple Maps (default); Android → Google Maps. Forcing Google on
@@ -65,6 +65,11 @@ export default function LiveTrackingScreen({ route, navigation }) {
   }, [jobId]);
 
   const eta = techPos ? etaMinutes(techPos, DESTINATION) : null;
+  const phone = (theme.phone || '').replace(/[^0-9+]/g, '');
+  const contact = (scheme) => {
+    if (!phone) return Alert.alert('No phone number', 'This shop hasn’t added a phone number yet.');
+    Linking.openURL(`${scheme}:${phone}`).catch(() => Alert.alert('Unable to open', `Couldn’t start a ${scheme === 'tel' ? 'call' : 'message'}.`));
+  };
 
   return (
     <View style={styles.screen}>
@@ -95,10 +100,10 @@ export default function LiveTrackingScreen({ route, navigation }) {
         <Text style={styles.sub}>Lead technician · Job {jobId}</Text>
 
         <View style={styles.row}>
-          <Pressable style={[styles.btn, { backgroundColor: '#1b2434' }]}>
+          <Pressable style={[styles.btn, { backgroundColor: '#1b2434' }]} onPress={() => contact('sms')}>
             <Text style={styles.btnText}>Message</Text>
           </Pressable>
-          <Pressable style={[styles.btn, { backgroundColor: theme.primaryColor }]}>
+          <Pressable style={[styles.btn, { backgroundColor: theme.primaryColor }]} onPress={() => contact('tel')}>
             <Text style={styles.btnText}>Call</Text>
           </Pressable>
         </View>

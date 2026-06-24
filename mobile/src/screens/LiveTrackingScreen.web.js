@@ -4,7 +4,7 @@
 // for the web bundle; native uses LiveTrackingScreen.js (with the real map).
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { api } from '../api';
@@ -48,6 +48,11 @@ export default function LiveTrackingScreen({ route, navigation }) {
   }, [jobId]);
 
   const eta = techPos ? etaMinutes(techPos, DESTINATION) : null;
+  const phone = (theme.phone || '').replace(/[^0-9+]/g, '');
+  const contact = (scheme) => {
+    if (!phone) return Alert.alert('No phone number', 'This shop hasn’t added a phone number yet.');
+    Linking.openURL(`${scheme}:${phone}`).catch(() => {});
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
@@ -69,8 +74,8 @@ export default function LiveTrackingScreen({ route, navigation }) {
         <Text style={styles.sub}>Lead technician · Job {jobId}</Text>
 
         <View style={styles.row}>
-          <Pressable style={[styles.btn, { backgroundColor: '#1b2434' }]}><Text style={styles.btnText}>Message</Text></Pressable>
-          <Pressable style={[styles.btn, { backgroundColor: theme.primaryColor }]}><Text style={styles.btnText}>Call</Text></Pressable>
+          <Pressable style={[styles.btn, { backgroundColor: '#1b2434' }]} onPress={() => contact('sms')}><Text style={styles.btnText}>Message</Text></Pressable>
+          <Pressable style={[styles.btn, { backgroundColor: theme.primaryColor }]} onPress={() => contact('tel')}><Text style={styles.btnText}>Call</Text></Pressable>
         </View>
 
         <Pressable

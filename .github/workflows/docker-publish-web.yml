@@ -1,0 +1,44 @@
+name: Publish web image
+
+# Builds the VIPOR web app (Expo web export served by nginx) and pushes it to
+# GHCR so TrueNAS can host it: ghcr.io/<owner>/vipor-web
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/docker-publish-web.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase owner
+        id: owner
+        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: mobile
+          file: mobile/Dockerfile.web
+          push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=https://vipor-api.vipor.ca/api
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/vipor-web:latest
+            ghcr.io/${{ steps.owner.outputs.name }}/vipor-web:${{ github.sha }}

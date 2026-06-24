@@ -77,6 +77,26 @@ Verify (TrueNAS shell or any LAN box): `curl http://<truenas-ip>:3001/health`
 
 ---
 
+## Host the WEB APP on TrueNAS too (optional)
+
+A GitHub Action (`docker-publish-web.yml`) builds the Expo web export into an
+nginx image and pushes `ghcr.io/<owner>/vipor-web`. Host it next to the backend:
+
+1. Make the `vipor-web` package **Public** (same as the backend image).
+2. TrueNAS → **Apps → Custom App**:
+   - **Application Name:** `vipor-web`
+   - **Image Repository:** `ghcr.io/viipor316/vipor-web` · **Tag:** `latest` · **Pull Policy:** Always
+   - **Network → Port:** Container `80` → Host `3002` (any free host port)
+   - No env vars or storage needed (it's static files; the API URL is baked at build).
+3. Add a second **Cloudflare Public Hostname** → e.g. `app` . your domain → **Type** HTTP →
+   **URL** `localhost:3002` (or `<truenas-ip>:3002`).
+
+Result: `https://app.yourdomain.com` serves the web app from your server, talking
+to `vipor-api.yourdomain.com`. Nothing on Expo's hosting, nothing on your PC.
+
+> To change the API the web build points at, edit the `EXPO_PUBLIC_API_URL`
+> build-arg in `.github/workflows/docker-publish-web.yml`.
+
 ## Point the Cloudflare tunnel at it
 
 In **Zero Trust → Networks → Tunnels → (your tunnel) → Public Hostname → Add**:
