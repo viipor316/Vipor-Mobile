@@ -1,0 +1,41 @@
+name: Publish backend image
+
+# Builds the VIPOR backend container and pushes it to GitHub Container Registry
+# (GHCR) so TrueNAS (or any host) can pull it as: ghcr.io/<owner>/vipor-backend
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/docker-publish.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase owner
+        id: owner
+        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/vipor-backend:latest
+            ghcr.io/${{ steps.owner.outputs.name }}/vipor-backend:${{ github.sha }}

@@ -38,22 +38,42 @@ cd /mnt/<your-pool>/apps/vipor && git pull && docker compose up -d --build
 
 ---
 
-## B. TrueNAS Apps → Custom App
+## B. TrueNAS Apps → Custom App (GHCR image) — UI, no SSH
 
-If you prefer the UI: **Apps → Discover Apps → Custom App** and set:
+The Custom App form needs a registry image, so a GitHub Action
+(`.github/workflows/docker-publish.yml`) builds and publishes the backend to
+**GHCR** on every push to `main`.
 
-- **Image repository:** `vipor-api` (you must build/push it first — Compose in A is
-  easier since it builds from source). Or point at a registry image if you push one.
-- **Container Port:** `3001`  → **Node Port / published:** `3001`
-- **Environment variables:**
-  - `JWT_SECRET` = a long random string
-  - `SEED_DEMO` = `true` (or `false` for a clean pilot)
-  - `CORS_ORIGIN` = `*` (tighten later)
-  - `DATA_FILE` = `/data/vipor-db.json`
-- **Storage:** mount a host path (e.g. `/mnt/<pool>/apps/vipor-data`) → `/data`
+### One-time: make the image pullable
+1. Push to `main` (or run the **Publish backend image** action manually under the
+   repo's **Actions** tab). It pushes `ghcr.io/<owner>/vipor-backend:latest`.
+2. GitHub → your profile → **Packages** → `vipor-backend` → **Package settings** →
+   **Change visibility → Public**. (Or keep it private and add a GHCR pull
+   credential in TrueNAS — public is simpler.)
 
-> The Compose path (A) builds the image from the repo for you; the UI path expects
-> a prebuilt image, so most people use A.
+### In TrueNAS: Apps → Discover Apps → Custom App
+- **Application Name:** `vipor-api`
+- **Image Configuration**
+  - **Repository:** `ghcr.io/<your-github-username>/vipor-backend`  (lowercase)
+  - **Tag:** `latest`
+  - **Pull Policy:** *Always* (so redeploys pick up new pushes)
+- **Container Configuration:** leave Hostname / Entrypoint / Args blank — the
+  image already runs `node server.js`.
+- **Container Environment Variables** → Add each:
+  | Name | Value |
+  |---|---|
+  | `JWT_SECRET` | a long random string (e.g. from `openssl rand -hex 32`) |
+  | `SEED_DEMO` | `true` (or `false` for a clean pilot) |
+  | `CORS_ORIGIN` | `*` (tighten later) |
+  | `DATA_FILE` | `/data/vipor-db.json` |
+- **Network Configuration** → Add a port:
+  - **Container Port:** `3001` · **Host (Node) Port:** `3001`
+- **Storage Configuration** → Add:
+  - **Type:** Host Path · **Host Path:** `/mnt/<pool>/apps/vipor-data` ·
+    **Mount Path:** `/data`
+- **Install.**
+
+Verify (TrueNAS shell or any LAN box): `curl http://<truenas-ip>:3001/health`
 
 ---
 
