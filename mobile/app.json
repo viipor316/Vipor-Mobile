@@ -35,6 +35,12 @@
         "projectId": "dd1686b4-0243-46b5-8bba-1d29115fdff0"
       }
     },
-    "owner": "vipor316"
+    "owner": "vipor316",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/dd1686b4-0243-46b5-8bba-1d29115fdff0"
+    }
   }
 }
