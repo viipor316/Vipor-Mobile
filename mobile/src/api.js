@@ -2,7 +2,7 @@
 // Set EXPO_PUBLIC_API_URL to your machine's LAN IP when testing on a physical
 // phone. Example: EXPO_PUBLIC_API_URL=http://192.168.1.20:3001/api
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://vipor-api.vipor.ca/api';
 
 let authToken = null;
 let onUnauthorized = null;
