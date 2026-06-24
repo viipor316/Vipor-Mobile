@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { api } from '../api';
 
-export default function NewRequestScreen({ navigation }) {
+export default function NewRequestScreen({ route, navigation }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -19,7 +19,7 @@ export default function NewRequestScreen({ navigation }) {
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [vin, setVin] = useState('');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(route?.params?.service || '');
   const [date, setDate] = useState(null);     // preferred booking date (YYYY-MM-DD)
   const [slot, setSlot] = useState('Morning');
   const [busy, setBusy] = useState(false);
@@ -82,6 +82,23 @@ export default function NewRequestScreen({ navigation }) {
         <Text style={styles.label}>VIN <Text style={styles.optional}>(optional — helps source parts)</Text></Text>
         <TextInput style={[styles.input, styles.vinInput]} placeholder="e.g. 19XFC2F59JE000111" placeholderTextColor="#aab2bd"
           value={vin} onChangeText={setVin} autoCapitalize="characters" autoCorrect={false} maxLength={17} />
+
+        {theme.services?.length ? (
+          <>
+            <Text style={styles.label}>Pick a service <Text style={styles.optional}>(or describe below)</Text></Text>
+            <View style={styles.svcWrap}>
+              {theme.services.map((s, i) => {
+                const on = description === s.name;
+                return (
+                  <Pressable key={i} onPress={() => setDescription(s.name)}
+                    style={[styles.svcChip, on && { backgroundColor: theme.primaryColor, borderColor: theme.primaryColor }]}>
+                    <Text style={[styles.svcChipText, on && { color: '#fff' }]}>{s.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.label}>Describe the issue</Text>
         <TextInput style={[styles.input, styles.textarea]} placeholder="e.g. grinding noise when braking"
@@ -156,6 +173,9 @@ const styles = StyleSheet.create({
   slots: { flexDirection: 'row', gap: 10, marginTop: 12 },
   slot: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e3e7ed', backgroundColor: '#fff', alignItems: 'center' },
   slotText: { color: INK, fontSize: 13, fontWeight: '700' },
+  svcWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  svcChip: { backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#e3e7ed' },
+  svcChipText: { color: INK, fontSize: 13, fontWeight: '600' },
   actions: { paddingHorizontal: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e3e7ed', backgroundColor: '#eef1f5' },
   primary: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },

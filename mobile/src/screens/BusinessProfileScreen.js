@@ -20,21 +20,36 @@ export default function BusinessProfileScreen({ navigation }) {
 
   const [form, setForm] = useState(null);
   const [color, setColor] = useState(theme.primaryColor);
+  const [services, setServices] = useState([]);
+  const [svcName, setSvcName] = useState('');
+  const [svcPrice, setSvcPrice] = useState('');
   const [saving, setSaving] = useState(false);
+
+  function addService() {
+    if (!svcName.trim()) return;
+    setServices((s) => [...s, { name: svcName.trim(), price: svcPrice.trim() ? Number(svcPrice.trim()) : null }]);
+    setSvcName(''); setSvcPrice('');
+  }
 
   useEffect(() => {
     (async () => {
       try {
         const t = await api.get('/tenant/profile');
+        const pr = t.profile || {};
         setForm({
           name: t.name || '',
           logoUrl: t.branding?.logoUrl || '',
-          phone: t.profile?.phone || '',
-          email: t.profile?.email || '',
-          address: t.profile?.address || '',
-          website: t.profile?.website || '',
-          hours: t.profile?.hours || '',
+          bannerUrl: pr.bannerUrl || '',
+          description: pr.description || '',
+          phone: pr.phone || '',
+          email: pr.email || '',
+          address: pr.address || '',
+          website: pr.website || '',
+          hours: pr.hours || '',
+          facebook: pr.social?.facebook || '',
+          instagram: pr.social?.instagram || '',
         });
+        setServices(Array.isArray(pr.services) ? pr.services : []);
         setColor(t.branding?.primaryColor || theme.primaryColor);
       } catch (e) {
         Alert.alert('Could not load profile', e.message ?? '');
@@ -48,7 +63,12 @@ export default function BusinessProfileScreen({ navigation }) {
     if (!form.name.trim()) { Alert.alert('Name required', 'Your garage needs a name.'); return; }
     setSaving(true);
     try {
-      await api.patch('/tenant/profile', { ...form, primaryColor: color });
+      const { facebook, instagram, ...rest } = form;
+      await api.patch('/tenant/profile', {
+        ...rest, primaryColor: color,
+        social: { facebook, instagram },
+        services,
+      });
       theme.refresh?.();          // apply new brand immediately
       navigation.goBack();
     } catch (e) {
@@ -90,12 +110,47 @@ export default function BusinessProfileScreen({ navigation }) {
             value={form.logoUrl} onChangeText={set('logoUrl')} autoCapitalize="none" autoCorrect={false} />
         </View>
 
+        <Field label="Banner image URL" value={form.bannerUrl} onChangeText={set('bannerUrl')}
+          placeholder="https://…/banner.jpg" autoCapitalize="none" autoCorrect={false} />
+
+        <Text style={styles.label}>About your shop</Text>
+        <TextInput style={[styles.input, styles.textarea]} placeholder="Tell customers what makes you different"
+          placeholderTextColor="#aab2bd" value={form.description} onChangeText={set('description')}
+          multiline textAlignVertical="top" />
+
+        <Text style={styles.section}>Services offered</Text>
+        <View style={styles.svcList}>
+          {services.length === 0 && <Text style={styles.opt}>No services yet — add a few below.</Text>}
+          {services.map((s, i) => (
+            <View key={i} style={styles.svcRow}>
+              <Text style={styles.svcName}>{s.name}</Text>
+              <Text style={styles.svcPrice}>{s.price != null ? `from $${s.price}` : '—'}</Text>
+              <Pressable onPress={() => setServices((xs) => xs.filter((_, j) => j !== i))} hitSlop={8}>
+                <Text style={styles.remove}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+        <View style={styles.svcAdd}>
+          <TextInput style={[styles.input, { flex: 2 }]} placeholder="Service" placeholderTextColor="#aab2bd"
+            value={svcName} onChangeText={setSvcName} />
+          <TextInput style={[styles.input, { flex: 1 }]} placeholder="$ from" placeholderTextColor="#aab2bd"
+            keyboardType="number-pad" value={svcPrice} onChangeText={setSvcPrice} />
+          <Pressable style={[styles.addBtn, { backgroundColor: color }]} onPress={addService}>
+            <Text style={styles.addBtnText}>Add</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.section}>Contact</Text>
         <Field label="Phone" value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
         <Field label="Email" value={form.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" />
         <Field label="Address" value={form.address} onChangeText={set('address')} />
         <Field label="Website" value={form.website} onChangeText={set('website')} autoCapitalize="none" />
         <Field label="Hours" value={form.hours} onChangeText={set('hours')} placeholder="Mon–Fri 8am–6pm" />
+
+        <Text style={styles.section}>Social</Text>
+        <Field label="Facebook" value={form.facebook} onChangeText={set('facebook')} autoCapitalize="none" placeholder="page name or URL" />
+        <Field label="Instagram" value={form.instagram} onChangeText={set('instagram')} autoCapitalize="none" placeholder="@handle" />
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
@@ -139,6 +194,15 @@ const styles = StyleSheet.create({
   logoBox: { width: 56, height: 56, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#fff' },
   logo: { width: '100%', height: '100%' },
   logoLetter: { fontSize: 24, fontWeight: '800' },
+  textarea: { height: 90 },
+  svcList: { gap: 8 },
+  svcRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  svcName: { color: INK, fontSize: 14, fontWeight: '600', flex: 1 },
+  svcPrice: { color: MUTED, fontSize: 13 },
+  remove: { color: '#c0c7d0', fontSize: 14, fontWeight: '700' },
+  svcAdd: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  addBtn: { borderRadius: 10, paddingHorizontal: 16, height: 44, alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   actions: { paddingHorizontal: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e3e7ed', backgroundColor: '#eef1f5' },
   primary: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },

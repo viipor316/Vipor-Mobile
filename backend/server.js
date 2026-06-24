@@ -95,6 +95,16 @@ function buildSeed() {
       phone: '(514) 555-0142', email: 'service@vipor.demo',
       address: '1200 Rue Saint-Denis, Montréal, QC', website: 'vipor.ca',
       hours: 'Mon–Fri 8am–6pm · Sat 9am–2pm',
+      description: 'Mobile mechanics who come to you — honest quotes, real-time tracking, no surprises.',
+      bannerUrl: null,
+      social: { facebook: 'viporservice', instagram: 'vipor.service' },
+      services: [
+        { name: 'Oil & filter change', price: 60 },
+        { name: 'Brake pads & rotors', price: 220 },
+        { name: 'Diagnostics', price: 90 },
+        { name: 'Battery replacement', price: 180 },
+        { name: 'Pre-purchase inspection', price: 120 },
+      ],
     },
   };
 
@@ -383,11 +393,18 @@ const TRACKABLE = ['en_route', 'in_progress'];
 app.get('/api/tenant/branding', (req, res) => {
   const t = db.tenants[req.tenantId];
   if (!t) return res.status(404).json({ error: 'tenant not found' });
+  const p = t.profile || {};
   res.json({
     ...t.branding,
-    phone: t.profile?.phone || null,
-    email: t.profile?.email || null,
-    address: t.profile?.address || null,
+    phone: p.phone || null,
+    email: p.email || null,
+    address: p.address || null,
+    website: p.website || null,
+    hours: p.hours || null,
+    description: p.description || null,
+    bannerUrl: p.bannerUrl || null,
+    social: p.social || {},
+    services: p.services || [],
     features: (db.tiers[t.tier] || db.tiers.starter).features,
   });
 });
@@ -412,8 +429,16 @@ app.patch('/api/tenant/profile', requireRole('admin'), (req, res) => {
   if (typeof primaryColor === 'string' && primaryColor) t.branding.primaryColor = primaryColor;
   if (logoUrl !== undefined) t.branding.logoUrl = logoUrl || null;
   t.profile = t.profile || {};
-  for (const k of ['phone', 'email', 'address', 'website', 'hours']) {
+  for (const k of ['phone', 'email', 'address', 'website', 'hours', 'description', 'bannerUrl']) {
     if (typeof req.body[k] === 'string') t.profile[k] = req.body[k];
+  }
+  if (req.body.social && typeof req.body.social === 'object') {
+    t.profile.social = { ...(t.profile.social || {}), ...req.body.social };
+  }
+  if (Array.isArray(req.body.services)) {
+    t.profile.services = req.body.services
+      .filter((s) => s && typeof s.name === 'string' && s.name.trim())
+      .map((s) => ({ name: s.name.trim(), price: s.price != null && !isNaN(Number(s.price)) ? Number(s.price) : null }));
   }
   persist();
   res.json(tenantView(t));

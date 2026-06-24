@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, RefreshControl, Linking,
+  View, Text, Image, ScrollView, Pressable, ActivityIndicator, StyleSheet, RefreshControl, Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +55,13 @@ export default function CustomerHomeScreen({ navigation }) {
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
       >
+        {theme.bannerUrl ? (
+          <Image source={{ uri: theme.bannerUrl }} style={styles.banner} resizeMode="cover" />
+        ) : null}
+        {theme.description ? (
+          <Text style={styles.about}>{theme.description}</Text>
+        ) : null}
+
         <Pressable
           style={[styles.cta, { backgroundColor: theme.primaryColor }]}
           onPress={() => navigation.navigate('NewRequest')}
@@ -66,6 +73,21 @@ export default function CustomerHomeScreen({ navigation }) {
           <Pressable style={styles.contact} onPress={() => Linking.openURL(`tel:${theme.phone.replace(/[^0-9+]/g, '')}`)}>
             <Text style={styles.contactText}>📞  Call {theme.name || 'the shop'} · {theme.phone}</Text>
           </Pressable>
+        ) : null}
+
+        {theme.services?.length ? (
+          <>
+            <Text style={styles.section}>Services we offer</Text>
+            <View style={styles.svcWrap}>
+              {theme.services.map((s, i) => (
+                <Pressable key={i} style={styles.svcChip}
+                  onPress={() => navigation.navigate('NewRequest', { service: s.name })}>
+                  <Text style={styles.svcChipText}>{s.name}</Text>
+                  {s.price != null && <Text style={styles.svcChipPrice}>from ${s.price}</Text>}
+                </Pressable>
+              ))}
+            </View>
+          </>
         ) : null}
 
         <Text style={styles.section}>Your requests</Text>
@@ -113,8 +135,14 @@ const styles = StyleSheet.create({
   headerNote: { color: '#ffffffcc', fontSize: 12, marginTop: 2 },
   logout: { color: '#fff', fontSize: 14, fontWeight: '600' },
   body: { padding: 20, paddingBottom: 40 },
+  banner: { width: '100%', height: 120, borderRadius: 16, marginBottom: 14, backgroundColor: '#dfe4ea' },
+  about: { color: '#4b5563', fontSize: 14, lineHeight: 21, marginBottom: 14 },
   cta: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  svcWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  svcChip: { backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#e6eaf0' },
+  svcChipText: { color: INK, fontSize: 13, fontWeight: '700' },
+  svcChipPrice: { color: MUTED, fontSize: 11, marginTop: 2 },
   contact: { marginTop: 12, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   contactText: { color: '#1a2230', fontSize: 14, fontWeight: '600' },
   section: { color: INK, fontSize: 15, fontWeight: '700', marginTop: 24, marginBottom: 10 },
