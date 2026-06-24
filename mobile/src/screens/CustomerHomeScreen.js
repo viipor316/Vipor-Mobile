@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, RefreshControl,
+  View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, RefreshControl, Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +62,12 @@ export default function CustomerHomeScreen({ navigation }) {
           <Text style={styles.ctaText}>+  Request service</Text>
         </Pressable>
 
+        {theme.phone ? (
+          <Pressable style={styles.contact} onPress={() => Linking.openURL(`tel:${theme.phone.replace(/[^0-9+]/g, '')}`)}>
+            <Text style={styles.contactText}>📞  Call {theme.name || 'the shop'} · {theme.phone}</Text>
+          </Pressable>
+        ) : null}
+
         <Text style={styles.section}>Your requests</Text>
         {loading ? <ActivityIndicator color={theme.primaryColor} style={{ marginTop: 20 }} />
           : requests.length === 0 ? (
@@ -108,6 +114,8 @@ const styles = StyleSheet.create({
   body: { padding: 20, paddingBottom: 40 },
   cta: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  contact: { marginTop: 12, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  contactText: { color: '#1a2230', fontSize: 14, fontWeight: '600' },
   section: { color: INK, fontSize: 15, fontWeight: '700', marginTop: 24, marginBottom: 10 },
   empty: { color: MUTED, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12 },

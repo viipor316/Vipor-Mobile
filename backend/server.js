@@ -75,6 +75,11 @@ function buildSeed() {
     id: 'vipor', name: 'Vipor', status: 'active', tier: 'pro',
     stripeCustomerId: null, stripeSubscriptionId: null,
     branding: { name: 'Vipor', primaryColor: '#c8102e', logoUrl: null, locales: ['en', 'fr'] },
+    profile: {
+      phone: '(514) 555-0142', email: 'service@vipor.demo',
+      address: '1200 Rue Saint-Denis, Montréal, QC', website: 'vipor.ca',
+      hours: 'Mon–Fri 8am–6pm · Sat 9am–2pm',
+    },
   };
 
   // Open service requests waiting in the technician's inbox.
@@ -219,6 +224,7 @@ app.post('/api/onboard', async (req, res) => {
     id, name: garageName, status: 'incomplete', tier, // inactive until payment confirmed
     stripeCustomerId: null, stripeSubscriptionId: null,
     branding: { name: garageName, primaryColor, logoUrl: null, locales: ['en', 'fr'] },
+    profile: { phone: '', email, address: '', website: '', hours: '' },
   };
   const admin = {
     id: `u_${db.userSeq++}`, tenantId: id, email, name: ownerName, role: 'admin',
@@ -265,7 +271,7 @@ const requireRole = (...roles) => (req, res, next) =>
 // branding and billing stay reachable so a paused garage can see the paywall and pay.
 function subscriptionGate(req, res, next) {
   const p = req.path; // relative to the /api mount
-  if (p === '/me' || p === '/tenant/status' || p === '/tenant/branding' || p.startsWith('/billing')) return next();
+  if (p === '/me' || p === '/tenant/status' || p === '/tenant/branding' || p === '/tenant/profile' || p.startsWith('/billing')) return next();
   const t = db.tenants[req.tenantId];
   if (!t) return res.status(404).json({ error: 'tenant not found' });
   if (!['active', 'trialing'].includes(t.status)) {
@@ -329,11 +335,45 @@ app.post('/api/billing/portal', requireRole('admin'), async (req, res) => {
 
 const TRACKABLE = ['en_route', 'in_progress'];
 
-// branding now resolves per-tenant; feature flags come from the paid tier
+// branding now resolves per-tenant; feature flags come from the paid tier.
+// Includes public contact details so the customer app can show / call the shop.
 app.get('/api/tenant/branding', (req, res) => {
   const t = db.tenants[req.tenantId];
   if (!t) return res.status(404).json({ error: 'tenant not found' });
-  res.json({ ...t.branding, features: (TIERS[t.tier] || TIERS.starter).features });
+  res.json({
+    ...t.branding,
+    phone: t.profile?.phone || null,
+    email: t.profile?.email || null,
+    address: t.profile?.address || null,
+    features: (TIERS[t.tier] || TIERS.starter).features,
+  });
+});
+
+// ---- admin: business profile + branding management ------------------------
+const tenantView = (t) => ({
+  id: t.id, name: t.name, status: t.status, tier: t.tier,
+  branding: t.branding, profile: t.profile || {},
+});
+
+app.get('/api/tenant/profile', requireRole('admin'), (req, res) => {
+  const t = db.tenants[req.tenantId];
+  if (!t) return res.status(404).json({ error: 'tenant not found' });
+  res.json(tenantView(t));
+});
+
+app.patch('/api/tenant/profile', requireRole('admin'), (req, res) => {
+  const t = db.tenants[req.tenantId];
+  if (!t) return res.status(404).json({ error: 'tenant not found' });
+  const { name, primaryColor, logoUrl } = req.body;
+  if (typeof name === 'string' && name.trim()) { t.name = name.trim(); t.branding.name = name.trim(); }
+  if (typeof primaryColor === 'string' && primaryColor) t.branding.primaryColor = primaryColor;
+  if (logoUrl !== undefined) t.branding.logoUrl = logoUrl || null;
+  t.profile = t.profile || {};
+  for (const k of ['phone', 'email', 'address', 'website', 'hours']) {
+    if (typeof req.body[k] === 'string') t.profile[k] = req.body[k];
+  }
+  persist();
+  res.json(tenantView(t));
 });
 
 app.get('/api/quotes/:id', (req, res) => {

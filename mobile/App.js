@@ -20,6 +20,9 @@ import LiveTrackingScreen from './src/screens/LiveTrackingScreen';
 import TechDashboardScreen from './src/screens/TechDashboardScreen';
 import QuoteBuilderScreen from './src/screens/QuoteBuilderScreen';
 import TeamScreen from './src/screens/TeamScreen';
+import AdminScreen from './src/screens/AdminScreen';
+import BusinessProfileScreen from './src/screens/BusinessProfileScreen';
+import SubscriptionScreen from './src/screens/SubscriptionScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +61,9 @@ function StaffNav() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="TechDashboard" component={TechDashboardScreen} />
         <Stack.Screen name="QuoteBuilder" component={QuoteBuilderScreen} />
+        <Stack.Screen name="Admin" component={AdminScreen} />
+        <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} />
+        <Stack.Screen name="Subscription" component={SubscriptionScreen} />
         <Stack.Screen name="Team" component={TeamScreen} />
       </Stack.Navigator>
     </NavigationContainer>

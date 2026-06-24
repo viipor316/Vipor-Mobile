@@ -1,7 +1,7 @@
 // VIPOR Service — login / register screen.
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet,
+  View, Text, TextInput, Pressable, Image, ActivityIndicator, StyleSheet,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +43,9 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.inner, { paddingTop: insets.top + 60 }]}>
+        {theme.logoUrl ? (
+          <Image source={{ uri: theme.logoUrl }} style={styles.logo} resizeMode="contain" />
+        ) : null}
         <Text style={[styles.brand, { color: theme.primaryColor }]}>{theme.name || 'Vipor'}</Text>
         <Text style={styles.tagline}>{mode === 'login' ? 'Welcome back' : 'Create your account'}</Text>
 
@@ -88,6 +91,7 @@ const NAVY = '#1b2434', INK = '#1a2230', MUTED = '#8a93a0';
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: NAVY },
   inner: { flex: 1, paddingHorizontal: 28 },
+  logo: { width: 96, height: 96, alignSelf: 'center', marginBottom: 12 },
   brand: { color: '#fff', fontSize: 34, fontWeight: '700', textAlign: 'center' },
   tagline: { color: '#aab4c4', fontSize: 14, textAlign: 'center', marginTop: 6, marginBottom: 28 },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 22 },

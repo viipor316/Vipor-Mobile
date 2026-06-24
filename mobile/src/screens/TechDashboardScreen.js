@@ -91,8 +91,8 @@ export default function TechDashboardScreen({ navigation }) {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
           {user?.role === 'admin' && (
-            <Pressable onPress={() => navigation.navigate('Team')} hitSlop={12}>
-              <Text style={styles.logout}>Team</Text>
+            <Pressable onPress={() => navigation.navigate('Admin')} hitSlop={12}>
+              <Text style={styles.logout}>Manage</Text>
             </Pressable>
           )}
           <Pressable onPress={logout} hitSlop={12}>
